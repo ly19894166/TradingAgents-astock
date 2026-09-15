@@ -1,31 +1,20 @@
-"""Extract the 5-tier portfolio rating from the Portfolio Manager's decision.
-
-The Portfolio Manager produces a typed ``PortfolioDecision`` via structured
-output and renders it to markdown that always carries a ``**Rating**: X``
-header (see :func:`tradingagents.agents.schemas.render_pm_decision`).  The
-deterministic heuristic in :mod:`tradingagents.agents.utils.rating` is more
-than sufficient to extract that rating; no extra LLM call is needed.
-
-This module exists for backwards compatibility with callers that expect a
-``SignalProcessor.process_signal(text)`` interface.
-"""
+"""Extract the final T+1 decision from the Portfolio Manager output."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from tradingagents.agents.utils.rating import parse_rating
+from tradingagents.agents.utils.rating import parse_t1_decision
 
 
 class SignalProcessor:
-    """Read the 5-tier rating out of a Portfolio Manager decision."""
+    """Read the final Buy / Wait / Reject decision."""
 
     def __init__(self, quick_thinking_llm: Any = None):
-        # The LLM argument is accepted for backwards compatibility but no
-        # longer used: the PM's structured output guarantees the rating is
-        # parseable from the rendered markdown without a second LLM call.
+        # Kept only for backwards compatibility.
+        # No extra LLM call is required.
         self.quick_thinking_llm = quick_thinking_llm
 
     def process_signal(self, full_signal: str) -> str:
-        """Return one of Buy / Overweight / Hold / Underweight / Sell."""
-        return parse_rating(full_signal)
+        """Return exactly one of Buy / Wait / Reject."""
+        return parse_t1_decision(full_signal)

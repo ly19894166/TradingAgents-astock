@@ -17,11 +17,17 @@ def _strip_think(text: str) -> str:
 
 def _signal_style(signal: str) -> tuple[str, str]:
     s = signal.upper()
+
     if "BUY" in s:
-        return "#22c55e", "买入"
-    if "SELL" in s:
-        return "#ef4444", "卖出"
-    return "#fbbf24", "持有"
+        return "#22c55e", "可以买"
+
+    if "REJECT" in s:
+        return "#ef4444", "放弃"
+
+    if "WAIT" in s:
+        return "#fbbf24", "继续等"
+
+    return "#fbbf24", "继续等"
 
 
 _ANALYST_SECTIONS = [
@@ -119,11 +125,21 @@ def render_report(
 
     st.markdown("---")
 
-    inv_plan = final_state.get("investment_plan", "")
-    if inv_plan:
-        st.markdown("### 👔 最终投资建议")
-        st.markdown(_display_report_text(inv_plan, ticker, final_state))
-        st.markdown("---")
+final_decision = final_state.get("final_trade_decision", "")
+if final_decision:
+    st.markdown("### 🎯 最终 T+1 决策")
+    st.markdown(
+        _display_report_text(final_decision, ticker, final_state)
+    )
+    st.markdown("---")
+
+inv_plan = final_state.get("investment_plan", "")
+if inv_plan:
+    st.markdown("### 👔 研究经理观点（上游输入）")
+    st.markdown(
+        _display_report_text(inv_plan, ticker, final_state)
+    )
+    st.markdown("---")
 
     st.markdown("### 📊 分析师报告")
 
