@@ -554,71 +554,143 @@ def _collect_sections(
     final_state: dict[str, Any],
     ticker: str | None = None,
 ) -> list[tuple[str, str]]:
-    """Assemble the (title, content) report sections shared by PDF & Markdown.
+    """Assemble report sections shared by PDF and Markdown.
 
-    Keeps both export formats in sync from a single source of truth.
+    The authoritative T+1 decision is always shown first.
+    Research Manager and Trader outputs remain visible only as upstream inputs.
     """
     sections: list[tuple[str, str]] = []
 
+    # ---------------------------------------------------------
+    # 1. Authoritative final T+1 decision
+    # ---------------------------------------------------------
+    final_decision = final_state.get("final_trade_decision", "")
+    if final_decision:
+        text = _strip_think(str(final_decision))
+        if ticker:
+            text = normalize_stock_mentions(
+                text,
+                ticker,
+                final_state,
+            )
+        sections.append(("最终 T+1 决策", text))
+
+    # ---------------------------------------------------------
+    # 2. Analyst reports
+    # ---------------------------------------------------------
     for key, title in _REPORT_SECTIONS:
         content = final_state.get(key, "")
         if content:
             text = _strip_think(str(content))
             if ticker:
-                text = normalize_stock_mentions(text, ticker, final_state)
+                text = normalize_stock_mentions(
+                    text,
+                    ticker,
+                    final_state,
+                )
             sections.append((title, text))
 
+    # ---------------------------------------------------------
+    # 3. Bull / Bear debate
+    # ---------------------------------------------------------
     debate = final_state.get("investment_debate_state")
     if debate and isinstance(debate, dict):
         parts = []
+
         if debate.get("bull_history"):
-            parts.append(f"=== 多方论点 ===\n{debate['bull_history']}")
+            parts.append(
+                f"=== 多方论点 ===\n{debate['bull_history']}"
+            )
+
         if debate.get("bear_history"):
-            parts.append(f"\n=== 空方论点 ===\n{debate['bear_history']}")
+            parts.append(
+                f"\n=== 空方论点 ===\n{debate['bear_history']}"
+            )
+
         if debate.get("judge_decision"):
-            parts.append(f"\n=== 研究经理决策 ===\n{debate['judge_decision']}")
+            parts.append(
+                f"\n=== 研究经理决策 ===\n"
+                f"{debate['judge_decision']}"
+            )
+
         if parts:
             text = _strip_think("\n".join(parts))
             if ticker:
-                text = normalize_stock_mentions(text, ticker, final_state)
+                text = normalize_stock_mentions(
+                    text,
+                    ticker,
+                    final_state,
+                )
             sections.append(("多空辩论", text))
 
-    trader_decision = final_state.get("trader_investment_decision", "")
+    # ---------------------------------------------------------
+    # 4. Trader — upstream input only
+    # ---------------------------------------------------------
+    trader_decision = (
+        final_state.get("trader_investment_plan", "")
+        or final_state.get("trader_investment_decision", "")
+    )
+
     if trader_decision:
         text = _strip_think(str(trader_decision))
         if ticker:
-            text = normalize_stock_mentions(text, ticker, final_state)
-        sections.append(("交易员决策", text))
+            text = normalize_stock_mentions(
+                text,
+                ticker,
+                final_state,
+            )
+        sections.append(
+            ("交易员观点（上游输入）", text)
+        )
 
+    # ---------------------------------------------------------
+    # 5. Research Manager — upstream input only
+    # ---------------------------------------------------------
     inv_plan = final_state.get("investment_plan", "")
     if inv_plan:
         text = _strip_think(str(inv_plan))
         if ticker:
-            text = normalize_stock_mentions(text, ticker, final_state)
-        sections.append(("最终投资建议", text))
+            text = normalize_stock_mentions(
+                text,
+                ticker,
+                final_state,
+            )
+        sections.append(
+            ("研究经理观点（上游输入）", text)
+        )
 
+    # ---------------------------------------------------------
+    # 6. Risk debate
+    # ---------------------------------------------------------
     risk = final_state.get("risk_debate_state")
     if risk and isinstance(risk, dict):
         parts = []
-        for key_name, label in [("aggressive_history", "激进观点"),
-                                 ("conservative_history", "保守观点"),
-                                 ("neutral_history", "中性观点")]:
+
+        for key_name, label in [
+            ("aggressive_history", "激进观点"),
+            ("conservative_history", "保守观点"),
+            ("neutral_history", "中性观点"),
+        ]:
             if risk.get(key_name):
-                parts.append(f"=== {label} ===\n{risk[key_name]}")
+                parts.append(
+                    f"=== {label} ===\n{risk[key_name]}"
+                )
+
         if risk.get("judge_decision"):
-            parts.append(f"\n=== 风控决策 ===\n{risk['judge_decision']}")
+            parts.append(
+                f"\n=== 风控决策 ===\n"
+                f"{risk['judge_decision']}"
+            )
+
         if parts:
             text = _strip_think("\n".join(parts))
             if ticker:
-                text = normalize_stock_mentions(text, ticker, final_state)
+                text = normalize_stock_mentions(
+                    text,
+                    ticker,
+                    final_state,
+                )
             sections.append(("风控评估", text))
-
-    final_decision = final_state.get("final_trade_decision", "")
-    if final_decision:
-        text = _strip_think(str(final_decision))
-        if ticker:
-            text = normalize_stock_mentions(text, ticker, final_state)
-        sections.append(("最终决策", text))
 
     return sections
 

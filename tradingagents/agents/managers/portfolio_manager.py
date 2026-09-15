@@ -121,7 +121,10 @@ A positive long-term company story alone is NEVER enough for Buy.
 
 
 **Wait**
-The setup has meaningful positive evidence but is not yet strong enough for Buy.
+DO NOT initiate a position on trading day T.
+
+Wait means the current T-day opportunity does not meet the Buy threshold,
+even if the stock remains interesting.
 
 Use Wait when, for example:
 - confirmation is still missing,
@@ -131,7 +134,15 @@ Use Wait when, for example:
 - sector confirmation is incomplete,
 - the overnight catalyst is weak or uncertain,
 - the expected reward is not yet clearly superior to the overnight risk,
-- or the next-day opening behaviour must confirm the thesis first.
+- or the setup may become attractive only after new information or a new price structure appears.
+
+HARD WAIT RULE:
+- Wait authorizes NO purchase on trading day T.
+- Do NOT describe Wait as "buy now and wait for confirmation".
+- Do NOT treat a T+1 opening confirmation as permission for the original T-day trade.
+- If conditions improve later, that must be evaluated as a NEW, independent decision
+  using information available at that future decision time.
+- Do not retroactively convert today's Wait into today's Buy.
 
 Wait is NOT a disguised Buy.
 

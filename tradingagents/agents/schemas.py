@@ -172,9 +172,10 @@ class PortfolioDecision(BaseModel):
     rating: T1Decision = Field(
         description=(
             "Final T+1 short-term decision. Exactly one of Buy / Wait / Reject. "
-            "Buy means the expected T+1 opportunity is strong enough to take; "
-            "Wait means the setup is promising but confirmation or a better "
-            "entry condition is needed; Reject means the expected reward does "
+            "Buy means the expected T+1 opportunity is strong enough to take on trading day T; "
+            "Wait means DO NOT initiate a position on trading day T. The setup may remain "
+            "on a watchlist for a future independent decision, but Wait authorizes no "
+            "purchase under the current decision; Reject means the expected reward does "
             "not justify the overnight and next-day exit risk."
         ),
     )

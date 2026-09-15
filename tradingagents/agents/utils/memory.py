@@ -141,9 +141,14 @@ class TradingMemoryLog:
                 # Parse rating from the existing pending tag
                 fields = [f.strip() for f in tag_line[1:-1].split("|")]
                 rating = fields[2]
+                window_label = (
+                    "T+1open"
+                    if holding_days == 1
+                    else f"{holding_days}d"
+                )
                 new_tag = (
                     f"[{trade_date} | {ticker} | {rating}"
-                    f" | {raw_pct} | {alpha_pct} | {holding_days}d]"
+                    f" | {raw_pct} | {alpha_pct} | {window_label}]"
                 )
                 rest = "\n".join(lines[1:])
                 new_blocks.append(
@@ -195,9 +200,14 @@ class TradingMemoryLog:
                     rating = fields[2]
                     raw_pct = f"{upd['raw_return']:+.1%}"
                     alpha_pct = f"{upd['alpha_return']:+.1%}"
+                    window_label = (
+                        "T+1open"
+                        if upd["holding_days"] == 1
+                        else f"{upd['holding_days']}d"
+                    )
                     new_tag = (
                         f"[{trade_date} | {ticker} | {rating}"
-                        f" | {raw_pct} | {alpha_pct} | {upd['holding_days']}d]"
+                        f" | {raw_pct} | {alpha_pct} | {window_label}]"
                     )
                     rest = "\n".join(lines[1:])
                     new_blocks.append(

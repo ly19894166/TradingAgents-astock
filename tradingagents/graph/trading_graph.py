@@ -503,53 +503,118 @@ class TradingAgentsGraph:
         }
 
     def _fetch_returns(
-        self, ticker: str, trade_date: str, holding_days: int = 5
+        self,
+        ticker: str,
+        trade_date: str,
+        holding_days: int = 1,
     ) -> Tuple[Optional[float], Optional[float], Optional[int]]:
-        """Fetch raw and alpha return for ticker over holding_days from trade_date.
+        """Resolve the T+1 short-term outcome with a daily-data proxy.
 
-        Returns (raw_return, alpha_return, actual_holding_days) or
-        (None, None, None) if price data is unavailable (too recent, delisted,
-        or network error).
+        Formal strategy horizon:
+            trading day T -> overnight -> T+1 morning.
+
+        Because this deferred logger only has reliable daily OHLC data,
+        it must not invent an exact 09:35 / 09:45 / morning execution price.
+
+        Therefore the deterministic learning proxy is:
+
+            T close -> T+1 open
+
+        This replaces the legacy approximately five-trading-day
+        close-to-close evaluation.
+
+        The result measures the overnight / opening component only.
+        It is not claimed to be the user's exact realised trade P&L.
+
+        Returns:
+            (raw_t1_open_return, alpha_vs_csi300_t1_open, 1)
+
+        If the next trading day's opening data is not available yet,
+        the entry remains pending.
         """
+        # Kept only for compatibility with existing callers.
+        # The T+1 system always evaluates one next-session opening window.
+        _ = holding_days
+
         try:
-            start = datetime.strptime(trade_date, "%Y-%m-%d")
-            end = start + timedelta(days=holding_days + 7)  # buffer for weekends/holidays
-            end_str = end.strftime("%Y-%m-%d")
+            decision_date = datetime.strptime(trade_date, "%Y-%m-%d")
+            query_end = decision_date + timedelta(days=10)
 
             yf_symbol = _normalize_yfinance_ticker(ticker)
+
             if _is_unsupported_by_yfinance(yf_symbol):
-                # Say why instead of leaving a silent forever-pending entry.
                 logger.warning(
-                    "Cannot resolve outcome for %s: Yahoo Finance has no Beijing "
-                    "Stock Exchange coverage under any suffix, so this entry stays "
-                    "pending. Use a non-BSE ticker if you need memory reflection.",
+                    "Cannot resolve T+1 outcome for %s: Yahoo Finance "
+                    "does not provide supported Beijing Stock Exchange data.",
                     ticker,
                 )
                 return None, None, None
 
-            stock = yf.Ticker(yf_symbol).history(start=trade_date, end=end_str)
-            benchmark = yf.Ticker("000300.SS").history(start=trade_date, end=end_str)
+            stock = yf.Ticker(yf_symbol).history(
+                start=trade_date,
+                end=query_end.strftime("%Y-%m-%d"),
+            )
 
+            benchmark = yf.Ticker("000300.SS").history(
+                start=trade_date,
+                end=query_end.strftime("%Y-%m-%d"),
+            )
+
+            # We need T and the immediately following trading session.
             if len(stock) < 2 or len(benchmark) < 2:
                 return None, None, None
 
-            actual_days = min(holding_days, len(stock) - 1, len(benchmark) - 1)
-            raw = float(
-                (stock["Close"].iloc[actual_days] - stock["Close"].iloc[0])
-                / stock["Close"].iloc[0]
-            )
-            bench_ret = float(
-                (benchmark["Close"].iloc[actual_days] - benchmark["Close"].iloc[0])
-                / benchmark["Close"].iloc[0]
-            )
-            alpha = raw - bench_ret
-            return raw, alpha, actual_days
-        except Exception as e:
+            stock_first_date = stock.index[0].date()
+            benchmark_first_date = benchmark.index[0].date()
+
+            if stock_first_date != decision_date.date():
+                logger.warning(
+                    "Cannot resolve T+1 outcome for %s on %s: "
+                    "stock history does not start on the recorded decision date.",
+                    ticker,
+                    trade_date,
+                )
+                return None, None, None
+
+            if benchmark_first_date != decision_date.date():
+                logger.warning(
+                    "Cannot resolve T+1 benchmark outcome on %s: "
+                    "CSI 300 history does not start on the decision date.",
+                    trade_date,
+                )
+                return None, None, None
+
+            stock_t_close = float(stock["Close"].iloc[0])
+            stock_t1_open = float(stock["Open"].iloc[1])
+
+            benchmark_t_close = float(benchmark["Close"].iloc[0])
+            benchmark_t1_open = float(benchmark["Open"].iloc[1])
+
+            if stock_t_close <= 0 or benchmark_t_close <= 0:
+                return None, None, None
+
+            raw_return = (
+                stock_t1_open - stock_t_close
+            ) / stock_t_close
+
+            benchmark_return = (
+                benchmark_t1_open - benchmark_t_close
+            ) / benchmark_t_close
+
+            alpha_return = raw_return - benchmark_return
+
+            return raw_return, alpha_return, 1
+
+        except Exception as exc:
             logger.warning(
-                "Could not resolve outcome for %s on %s (will retry next run): %s",
-                ticker, trade_date, e,
+                "Could not resolve T+1 opening outcome for %s on %s "
+                "(will retry on a later run): %s",
+                ticker,
+                trade_date,
+                exc,
             )
             return None, None, None
+
 
     def _resolve_pending_entries(self, ticker: str) -> None:
         """Resolve pending log entries for ticker at the start of a new run.
